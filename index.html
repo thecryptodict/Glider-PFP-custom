@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Profile Cap Editor</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom Background Color based on the attached image */
+        body {
+            background-color: #98F7C6; /* Mint Green */
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        /* --- Cap Element Styling --- */
+        #draggable-cap {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            width: 150px;
+            height: 75px;
+            z-index: 20;
+            top: 25%;
+            left: calc(50% - 75px);
+            transition: opacity 0.3s;
+        }
+
+        .cap-dome {
+            background-color: #1a1a1a; /* Dark gray/black for the cap material */
+            width: 100%;
+            height: 50px;
+            border-top-left-radius: 50px;
+            border-top-right-radius: 50px;
+            position: relative;
+            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+            border: 2px solid #333;
+        }
+
+        .cap-brim {
+            background-color: #1a1a1a;
+            width: 120%;
+            height: 30px;
+            position: absolute;
+            bottom: -5px;
+            left: -10%;
+            border-radius: 0 0 50px 50px / 0 0 15px 15px;
+            transform: rotate(-3deg);
+            z-index: -1;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.7);
+        }
+
+        .bat-logo {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px; /* Slightly larger logo */
+            height: 20px;
+            /* Mimic the 3D embossed look using box shadow */
+            filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7)) drop-shadow(-1px -1px 1px rgba(255, 255, 255, 0.15));
+        }
+        
+        /* The Bat SVG (using a custom path to match the look of the reference image) */
+        .bat-logo svg {
+            width: 100%;
+            height: 100%;
+            fill: #333; /* Dark fill color */
+        }
+
+        /* --- Profile Container & Image Styling --- */
+        #profile-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            background-color: #4b5563; /* Dark placeholder color */
+            overflow: hidden;
+            touch-action: none; /* Prevents unwanted scrolling on mobile when dragging */
+        }
+        #profile-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            transition: opacity 0.3s;
+        }
+        
+        /* Initial State Placeholder */
+        .initial-state {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #d1d5db;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="w-full max-w-lg mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-2xl border-4 border-black">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2 text-center">Custom Cap Profile Creator</h1>
+        <p class="text-gray-600 mb-6 text-center">Upload your image, then drag the cap into the perfect position.</p>
+
+        <!-- File Upload Input -->
+        <label for="file-upload" class="block w-full text-center py-3 mb-6 cursor-pointer bg-black hover:bg-gray-800 transition duration-200 rounded-lg text-white font-semibold shadow-md">
+            Click to Upload Profile Picture
+        </label>
+        <input type="file" id="file-upload" accept="image/*" class="hidden" onchange="loadProfileImage(event)">
+
+        <!-- Profile Picture and Draggable Cap Area -->
+        <div id="image-editor-area" class="relative flex justify-center p-4 bg-gray-200 rounded-xl shadow-inner mb-6">
+            <div id="profile-container" class="rounded-xl shadow-lg">
+                <!-- Image Display Area -->
+                <img id="profile-image" src="" alt="Profile Picture" class="opacity-0">
+
+                <!-- Initial State Message -->
+                <div id="initial-message" class="initial-state absolute inset-0 text-xl pointer-events-none">
+                    <svg class="w-12 h-12 mb-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-9-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    <span>Upload an image to edit</span>
+                </div>
+            </div>
+
+            <!-- Draggable Cap Element (Initially Hidden) -->
+            <div id="draggable-cap" class="opacity-0">
+                <div class="cap-dome">
+                    <div class="bat-logo">
+                        <!-- Custom Bat Symbol SVG to match the V-shape -->
+                        <svg viewBox="0 0 100 40">
+                            <path d="M 0 40 L 50 0 L 100 40 L 80 40 L 50 10 L 20 40 Z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="cap-brim"></div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+            <button id="save-button" onclick="saveImage()" class="flex-1 py-3 bg-green-500 hover:bg-green-600 transition duration-200 rounded-lg text-white font-bold shadow-xl opacity-50 cursor-not-allowed" disabled>
+                Download Final Image
+            </button>
+            <button id="reset-button" onclick="resetApp()" class="flex-1 py-3 bg-red-500 hover:bg-red-600 transition duration-200 rounded-lg text-white font-bold shadow-xl">
+                Reset
+            </button>
+        </div>
+        
+        <!-- Save Message Box (Replaces alert) -->
+        <div id="message-box" class="mt-4 p-4 rounded-lg bg-yellow-100 text-yellow-800 font-medium text-center hidden"></div>
+
+    </div>
+
+    <script>
+        // --- Firebase/App ID Setup (Standard Environment Variables) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- DOM Elements ---
+        const profileImage = document.getElementById('profile-image');
+        const profileContainer = document.getElementById('profile-container');
+        const draggableCap = document.getElementById('draggable-cap');
+        const initialMessage = document.getElementById('initial-message');
+        const saveButton = document.getElementById('save-button');
+        const messageBox = document.getElementById('message-box');
+
+        // --- Dragging State Variables ---
+        let isDragging = false;
+        let offset = { x: 0, y: 0 };
+        let containerRect; 
+
+        /**
+         * Displays a temporary message to the user.
+         * @param {string} message The text to display.
+         * @param {string} bgColor Tailwind background class.
+         * @param {string} textColor Tailwind text color class.
+         */
+        function showMessage(message, bgColor = 'bg-yellow-100', textColor = 'text-yellow-800') {
+            messageBox.textContent = message;
+            messageBox.className = `mt-4 p-4 rounded-lg ${bgColor} ${textColor} font-medium text-center`;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 3000);
+        }
+
+        /**
+         * Handles the file upload and displays the image.
+         */
+        function loadProfileImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                profileImage.src = e.target.result;
+                profileImage.onload = () => {
+                    profileImage.classList.remove('opacity-0');
+                    initialMessage.classList.add('hidden');
+                    draggableCap.classList.remove('opacity-0');
+                    saveButton.disabled = false;
+                    saveButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                    showMessage("Image loaded! Now drag the cap into position.", 'bg-blue-100', 'text-blue-800');
+
+                    // Reset cap position for the new image
+                    draggableCap.style.left = 'calc(50% - 75px)';
+                    draggableCap.style.top = '25%';
+                    containerRect = profileContainer.getBoundingClientRect();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- Drag and Drop Logic (Mouse and Touch) ---
+
+        /**
+         * Gets the client coordinates from a mouse or touch event.
+         */
+        function getClientCoords(event) {
+            if (event.touches) {
+                return {
+                    clientX: event.touches[0].clientX,
+                    clientY: event.touches[0].clientY
+                };
+            }
+            return {
+                clientX: event.clientX,
+                clientY: event.clientY
+            };
+        }
+
+        function startDrag(event) {
+            if (profileImage.classList.contains('opacity-0')) return;
+            
+            event.preventDefault(); 
+            isDragging = true;
+            draggableCap.style.cursor = 'grabbing';
+            containerRect = profileContainer.getBoundingClientRect(); 
+
+            const coords = getClientCoords(event);
+            const capRect = draggableCap.getBoundingClientRect();
+            
+            // Calculate offset relative to the viewport
+            offset.x = coords.clientX - capRect.left;
+            offset.y = coords.clientY - capRect.top;
+
+            // Add global move and end listeners
+            document.addEventListener('mousemove', drag, { passive: false });
+            document.addEventListener('mouseup', endDrag);
+            document.addEventListener('touchmove', drag, { passive: false });
+            document.addEventListener('touchend', endDrag);
+        }
+
+        function drag(event) {
+            if (!isDragging) return;
+            
+            event.preventDefault(); // Stop mobile scrolling
+
+            const coords = getClientCoords(event);
+
+            // Calculate new position relative to the document
+            let newX = coords.clientX - offset.x;
+            let newY = coords.clientY - offset.y;
+
+            // Calculate position relative to the profile container (0, 0)
+            let relativeX = newX - containerRect.left;
+            let relativeY = newY - containerRect.top;
+            
+            const capWidth = draggableCap.offsetWidth;
+            const capHeight = draggableCap.offsetHeight;
+            const containerWidth = containerRect.width;
+            const containerHeight = containerRect.height;
+
+            // Boundary checking: keep the cap inside the container
+            relativeX = Math.max(0, Math.min(relativeX, containerWidth - capWidth));
+            relativeY = Math.max(0, Math.min(relativeY, containerHeight - capHeight));
+
+            // Apply new position
+            draggableCap.style.left = `${relativeX}px`;
+            draggableCap.style.top = `${relativeY}px`;
+        }
+
+        function endDrag() {
+            isDragging = false;
+            draggableCap.style.cursor = 'grab';
+            
+            // Remove listeners
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', endDrag);
+            document.removeEventListener('touchmove', drag);
+            document.removeEventListener('touchend', endDrag);
+        }
+
+        // Initialize listeners on the cap element
+        draggableCap.addEventListener('mousedown', startDrag);
+        draggableCap.addEventListener('touchstart', startDrag);
+
+
+        /**
+         * Combines the image and the cap overlay onto a canvas and downloads the result.
+         */
+        function saveImage() {
+            if (profileImage.classList.contains('opacity-0')) {
+                showMessage("Please upload an image first!", 'bg-red-100', 'text-red-800');
+                return;
+            }
+            
+            // 1. Create a temporary canvas
+            const canvas = document.createElement('canvas');
+            const img = profileImage;
+            
+            // Set canvas dimensions to the image's natural dimensions for best quality
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+
+            // 2. Draw the profile image onto the canvas
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            // 3. Calculate scaling factor and cap position relative to the natural image size
+            const scaleFactorX = img.naturalWidth / profileContainer.offsetWidth;
+            const scaleFactorY = img.naturalHeight / profileContainer.offsetHeight;
+
+            const capRect = draggableCap.getBoundingClientRect();
+            const containerRect = profileContainer.getBoundingClientRect();
+
+            // Calculate cap's top-left corner relative to the original image's coordinates
+            const capRelativeX = (capRect.left - containerRect.left) * scaleFactorX;
+            const capRelativeY = (capRect.top - containerRect.top) * scaleFactorY;
+            
+            // Cap's scaled size
+            const capWidthScaled = draggableCap.offsetWidth * scaleFactorX;
+            const capHeightScaled = draggableCap.offsetHeight * scaleFactorY;
+
+            // 4. Convert the cap HTML/CSS/SVG into an image that can be drawn on the canvas
+            // This is complex due to cross-browser security, so we use a foreignObject SVG wrapper.
+            const capHtmlContent = draggableCap.innerHTML;
+            
+            // This embedded CSS MUST match the styles defined globally for .cap-dome, .cap-brim, etc.
+            const svgMarkup = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="${capWidthScaled}" height="${capHeightScaled}">
+                    <style>
+                        .cap-dome {
+                            background-color: #1a1a1a;
+                            width: 100%;
+                            height: 50px;
+                            border-top-left-radius: 50px;
+                            border-top-right-radius: 50px;
+                            position: relative;
+                            box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+                            border: 2px solid #333;
+                            /* These dimensions need to be relative to the scaled svg/foreignObject */
+                            transform: scale(${capWidthScaled / 150}, ${capHeightScaled / 75});
+                            transform-origin: top left;
+                        }
+
+                        .cap-brim {
+                            background-color: #1a1a1a;
+                            width: 120%;
+                            height: 30px;
+                            position: absolute;
+                            bottom: -5px;
+                            left: -10%;
+                            border-radius: 0 0 50px 50px / 0 0 15px 15px;
+                            transform: rotate(-3deg);
+                            z-index: -1;
+                            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.7);
+                        }
+
+                        .bat-logo {
+                            position: absolute;
+                            top: 10px;
+                            left: 50%;
+                            transform: translateX(-50%);
+                            width: 50px;
+                            height: 20px;
+                            filter: drop-shadow(1px 1px 1px rgba(0, 0, 0, 0.7)) drop-shadow(-1px -1px 1px rgba(255, 255, 255, 0.15));
+                        }
+                        
+                        .bat-logo svg {
+                            width: 100%;
+                            height: 100%;
+                            fill: #333;
+                        }
+                    </style>
+                    <foreignObject x="0" y="0" width="100%" height="100%">
+                        <div xmlns="http://www.w3.org/1999/xhtml" style="width:150px; height:75px; position:relative; overflow: visible; display: block;">
+                             <div class="cap-dome">
+                                <div class="bat-logo">
+                                    <!-- Custom Bat Symbol SVG -->
+                                    <svg viewBox="0 0 100 40">
+                                        <path d="M 0 40 L 50 0 L 100 40 L 80 40 L 50 10 L 20 40 Z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="cap-brim"></div>
+                        </div>
+                    </foreignObject>
+                </svg>
+            `;
+            
+            const svgDataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup);
+            
+            const capImg = new Image();
+            capImg.onload = function() {
+                // Draw the cap image onto the canvas at the scaled position
+                ctx.drawImage(
+                    capImg, 
+                    capRelativeX, 
+                    capRelativeY, 
+                    capWidthScaled, 
+                    capHeightScaled
+                );
+
+                // 5. Generate the final image and trigger download
+                const dataURL = canvas.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = 'custom-profile-cap.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+
+                showMessage("Image saved successfully!", 'bg-green-100', 'text-green-800');
+            };
+            capImg.onerror = function(e) {
+                console.error("Image loading error for SVG:", e);
+                showMessage("Error saving image. Ensure your browser allows canvas drawing from SVGs.", 'bg-red-100', 'text-red-800');
+            };
+
+            capImg.src = svgDataUrl;
+        }
+
+        /**
+         * Resets the application state.
+         */
+        function resetApp() {
+            profileImage.src = "";
+            profileImage.classList.add('opacity-0');
+            initialMessage.classList.remove('hidden');
+            draggableCap.classList.add('opacity-0');
+            saveButton.disabled = true;
+            saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('file-upload').value = null; // Clear file input
+            
+            // Reset cap position
+            draggableCap.style.left = 'calc(50% - 75px)';
+            draggableCap.style.top = '25%';
+
+            showMessage("Application reset. Ready for a new picture.", 'bg-blue-100', 'text-blue-800');
+        }
+    </script>
+</body>
+</html>
